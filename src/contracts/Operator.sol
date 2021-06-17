@@ -8,32 +8,23 @@ import "./FeeManager.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract Operator is Ownable {
-    address private currency;
     address private feeManager;
-    address private tokenRecipient;
+    address private feeRecipient;
 
     event SaleAwarded(address from, address to, uint tokenId);
+    event ItemGifted(address from, address to, uint tokenId);
     
-    constructor(address _currency, address _feeManager, address recipient) {
-        currency = _currency;
+    constructor(address _feeManager, address _feeRecipient) {
         feeManager = _feeManager;
-        tokenRecipient = recipient;
-    }
-
-    function changeCurrency(address _currency) public onlyOwner {
-        currency = _currency;
+        feeRecipient = _feeRecipient;
     }
 
     function changeFeeManager(address _feeManager) public onlyOwner {
         feeManager = _feeManager;
     }
 
-    function changeFeeRecipient(address recipient) public onlyOwner {
-        tokenRecipient = recipient;
-    }
-
-    function getCurrency() public view onlyOwner returns(address)  {
-        return currency;
+    function changeFeeRecipient(address _feeRecipient) public onlyOwner {
+        feeRecipient = _feeRecipient;
     }
 
     function getFeeManager() public view onlyOwner returns(address) {
@@ -41,10 +32,10 @@ contract Operator is Ownable {
     }
 
     function getFeeRecipient() public view onlyOwner returns(address) {
-        return tokenRecipient;
+        return feeRecipient;
     }
 
-    function awardItem(uint tokenId, address buyer, uint price, address nftContract, address owner) public onlyOwner {
+    function awardItem(uint tokenId, address buyer, uint price, address nftContract, address owner, address currency) public onlyOwner {
         require(buyer != address(0), "Buyer cannot be the zero address");
         require(owner != address(0), "Owner cannot be the zero address");
         require(price > 0, "Price should be greater than zero");
@@ -55,8 +46,17 @@ contract Operator is Ownable {
         uint amount = price - fee;
 
         ERC20(currency).transferFrom(buyer, owner, amount);
-        ERC20(currency).transferFrom(buyer, tokenRecipient, fee);
+        ERC20(currency).transferFrom(buyer, feeRecipient, fee);
         ERC721(nftContract).safeTransferFrom(owner, buyer, tokenId);
         emit SaleAwarded(owner, buyer, tokenId);
+    }
+
+    // TODO: To be tested
+    function giftItem(uint tokenId, address receiver, address nftContract, address owner) public onlyOwner {
+        require(receiver != address(0), "receiver cannot be the zero address");
+        require(owner != address(0), "Owner cannot be the zero address");
+
+        ERC721(nftContract).safeTransferFrom(owner, receiver, tokenId);
+        emit ItemGifted(owner, receiver, tokenId);
     }
 }

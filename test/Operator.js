@@ -30,8 +30,6 @@ contract(
       manager = await FeeManager.deployed();
       nft = await NFTToken.deployed();
 
-      await manager.setPartnerFee(owner, 500);
-
       await nft.mint(tokenId, { from: owner });
       await token.transfer(buyer, "1000000");
 
@@ -41,7 +39,7 @@ contract(
         { from: buyer }
       );
 
-      let res = await nft.approve(operator.address, tokenId, { from: owner });
+      await nft.approve(operator.address, tokenId, { from: owner });
     });
 
     describe("Deployment", async () => {
@@ -53,12 +51,7 @@ contract(
       });
     });
 
-    describe("Contract configuration", () => {
-      it("has the correct currency", async () => {
-        let currency = await operator.getCurrency();
-        expect(currency).to.be.equal(token.address);
-      });
-
+    describe("Contract configuration", async () => {
       it("has the correct fee manager", async () => {
         let _manager = await operator.getFeeManager();
         expect(_manager).to.be.equal(manager.address);
@@ -70,16 +63,9 @@ contract(
       });
 
       // Update contract config
-      it("updates the currency", async () => {
-        let newCurrency = await GoldToken.new("1000000000000000000");
-        await operator.changeCurrency(newCurrency.address);
-        let currency = await operator.getCurrency();
-        expect(currency).to.be.equal(newCurrency.address);
-        await operator.changeCurrency(token.address);
-      });
 
       it("updates the fee manager", async () => {
-        let newFee = await FeeManager.new();
+        let newFee = await FeeManager.new(400);
         await operator.changeFeeManager(newFee.address);
         let _manager = await operator.getFeeManager();
         expect(_manager).to.be.equal(newFee.address);
@@ -94,20 +80,38 @@ contract(
       });
     });
 
-    describe("Award NFT to the auction winner", () => {
+    describe("Award NFT to the auction winner", async () => {
       it("rejects if buyer is the zero address", async () => {
-        await operator.awardItem(tokenId, 0, "1000", nft.address, owner).should
-          .be.rejected;
+        await operator.awardItem(
+          tokenId,
+          0,
+          "1000",
+          nft.address,
+          owner,
+          token.address
+        ).should.be.rejected;
       });
 
       it("rejects if owner is the zero address", async () => {
-        await operator.awardItem(tokenId, buyer, "1000", nft.address, 0).should
-          .be.rejected;
+        await operator.awardItem(
+          tokenId,
+          buyer,
+          "1000",
+          nft.address,
+          0,
+          token.address
+        ).should.be.rejected;
       });
 
       it("rejects if price is zero", async () => {
-        await operator.awardItem(tokenId, buyer, "0", nft.address, owner).should
-          .be.rejected;
+        await operator.awardItem(
+          tokenId,
+          buyer,
+          "0",
+          nft.address,
+          owner,
+          token.address
+        ).should.be.rejected;
       });
 
       it("rejects if buyer balance is unsufficient", async () => {
@@ -116,7 +120,8 @@ contract(
           buyerWithNoFunds,
           tokenPrice,
           nft.address,
-          owner
+          owner,
+          token.address
         ).should.be.rejected;
       });
 
@@ -129,6 +134,7 @@ contract(
           tokenPrice,
           nft.address,
           owner,
+          token.address,
           { from: deployer }
         );
 
@@ -152,6 +158,27 @@ contract(
           buyerBalanceBefore.toNumber() - tokenPrice
         );
         expect(recipientBalance.toNumber()).to.be.equal(fee);
+      });
+
+      it("transfers NFT to buyer as gift", async () => {
+        let buyerBalanceBefore = await token.balanceOf(buyer);
+        await nft.mint(10, { from: owner });
+        await nft.approve(operator.address, 10, { from: owner });
+
+        let receipt = await operator.giftItem(10, buyer, nft.address, owner, {
+          from: deployer,
+        });
+
+        const awardedEvent = receipt.logs.find((l) => l.event === "ItemGifted");
+
+        expect(awardedEvent.args.from).to.be.equal(owner);
+        expect(awardedEvent.args.to).to.be.equal(buyer);
+        expect(awardedEvent.args.tokenId.toNumber()).to.be.equal(10);
+
+        let buyerBalance = await token.balanceOf(buyer);
+        expect(buyerBalance.toNumber()).to.be.equal(
+          buyerBalanceBefore.toNumber()
+        );
       });
     });
   }

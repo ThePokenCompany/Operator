@@ -18,17 +18,31 @@ contract("FeeManager", async ([deployer, partner1, partner2]) => {
     });
   });
 
-  describe("Manage partner fee", () => {
+  describe("Manage partner fee", async () => {
     it("rejects update fee for partner that is not set before", async () => {
       let newFee = 3000;
       await manager.updatePartnerFee(partner1, newFee).should.be.rejected;
     });
 
-    it("sets fee for partner", async () => {
+    it("returns the default fee when fee is not set for a partner", async () => {
       let fee = 500;
+      let partnerFee = await manager.getPartnerFee(partner1);
+      expect(partnerFee.toNumber()).to.be.equal(fee);
+    });
+
+    it("sets fee for partner and returns the correct fee for a partner", async () => {
+      let fee = 600;
       await manager.setPartnerFee(partner1, fee);
 
       let partnerFee = await manager.getPartnerFee(partner1);
+      expect(partnerFee.toNumber()).to.be.equal(fee);
+    });
+
+    it("sets default fee ", async () => {
+      let fee = 3000;
+      await manager.setDefaultFee(fee);
+
+      let partnerFee = await manager.getPartnerFee(partner2);
       expect(partnerFee.toNumber()).to.be.equal(fee);
     });
 
