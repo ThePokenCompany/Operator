@@ -5,19 +5,7 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-
-interface IERC2981Royalties {
-    /// @notice Called with the sale price to determine how much royalty
-    //          is owed and to whom.
-    /// @param _tokenId - the NFT asset queried for royalty information
-    /// @param _value - the sale price of the NFT asset specified by _tokenId
-    /// @return _receiver - address of who should be sent the royalty payment
-    /// @return _royaltyAmount - the royalty payment amount for value sale price
-    function royaltyInfo(uint256 _tokenId, uint256 _value)
-        external
-        view
-        returns (address _receiver, uint256 _royaltyAmount);
-}
+import "./IERC2981Royalties.sol";
 
 contract NFTToken is ERC721URIStorage, Ownable, IERC2981Royalties {
     struct Royalty {

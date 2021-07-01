@@ -16,6 +16,7 @@ contract(
     owner,
     buyer,
     buyerWithNoFunds,
+    newBuyer,
   ]) => {
     let operator;
     let token;
@@ -23,6 +24,7 @@ contract(
     let nft;
     let tokenId = 1;
     let tokenPrice = 1000;
+    let royaltyPercentage = 500;
 
     before(async () => {
       operator = await Operator.deployed();
@@ -30,13 +32,22 @@ contract(
       manager = await FeeManager.deployed();
       nft = await NFTToken.deployed();
 
-      await nft.mint(tokenId, { from: owner });
+      await nft.mint(tokenId, owner, royaltyPercentage, tokenId.toString(), {
+        from: owner,
+      });
       await token.transfer(buyer, "1000000");
+      await token.transfer(newBuyer, "1000000");
 
       await token.approve(
         operator.address,
         "10000000000000000000000000000000000000",
         { from: buyer }
+      );
+
+      await token.approve(
+        operator.address,
+        "10000000000000000000000000000000000000",
+        { from: newBuyer }
       );
 
       await nft.approve(operator.address, tokenId, { from: owner });
@@ -162,7 +173,7 @@ contract(
 
       it("transfers NFT to buyer as gift", async () => {
         let buyerBalanceBefore = await token.balanceOf(buyer);
-        await nft.mint(10, { from: owner });
+        await nft.mint(10, owner, royaltyPercentage, "10", { from: owner });
         await nft.approve(operator.address, 10, { from: owner });
 
         let receipt = await operator.giftItem(10, buyer, nft.address, owner, {
@@ -178,6 +189,74 @@ contract(
         let buyerBalance = await token.balanceOf(buyer);
         expect(buyerBalance.toNumber()).to.be.equal(
           buyerBalanceBefore.toNumber()
+        );
+      });
+
+      it("transfers NFT to buyer, transfer the price - fee to the the owner, transfers the fee to token recipient and transfer the royalties to the owner", async () => {
+        let creator = owner;
+        let newOwner = buyer;
+        let buyerBalanceBefore = await token.balanceOf(newBuyer);
+        let creatorBalanceBefore = await token.balanceOf(creator);
+        let ownerBalanceBefore = await token.balanceOf(newOwner);
+        let receipinetBalanceBefore = await token.balanceOf(recipient);
+
+        await nft.approve(operator.address, tokenId, { from: newOwner });
+
+        let receipt = await operator.awardItem(
+          tokenId,
+          newBuyer,
+          tokenPrice,
+          nft.address,
+          newOwner,
+          token.address,
+          { from: deployer }
+        );
+
+        const royaltyInfo = await nft.royaltyInfo(tokenId, tokenPrice);
+
+        expect(royaltyInfo._receiver).to.be.equal(creator);
+        expect(royaltyInfo._royaltyAmount.toNumber()).to.be.equal(
+          (tokenPrice * royaltyPercentage) / 10000
+        );
+
+        let ownerBalance = await token.balanceOf(newOwner);
+        let buyerBalance = await token.balanceOf(newBuyer);
+        let recipientBalance = await token.balanceOf(recipient);
+        let creatorBalance = await token.balanceOf(creator);
+        let commission = await manager.getPartnerFee(newOwner);
+        let fee = (tokenPrice * commission) / 10000;
+        let amount = tokenPrice - fee - royaltyInfo._royaltyAmount.toNumber();
+
+        expect(ownerBalance.toNumber()).to.be.equal(
+          ownerBalanceBefore.toNumber() + amount
+        );
+        expect(buyerBalance.toNumber()).to.be.equal(
+          buyerBalanceBefore.toNumber() - tokenPrice
+        );
+        expect(recipientBalance.toNumber()).to.be.equal(
+          receipinetBalanceBefore.toNumber() + fee
+        );
+        expect(creatorBalance.toNumber()).to.be.equal(
+          creatorBalanceBefore.toNumber() +
+            royaltyInfo._royaltyAmount.toNumber()
+        );
+
+        const awardedEvent = receipt.logs.find(
+          (l) => l.event === "SaleAwarded"
+        );
+
+        const royaltyEvent = receipt.logs.find(
+          (l) => l.event === "RoyaltyTransferred"
+        );
+
+        expect(awardedEvent.args.from).to.be.equal(buyer);
+        expect(awardedEvent.args.to).to.be.equal(newBuyer);
+        expect(awardedEvent.args.tokenId.toNumber()).to.be.equal(tokenId);
+
+        expect(royaltyEvent.args.from).to.be.equal(newBuyer);
+        expect(royaltyEvent.args.to).to.be.equal(owner);
+        expect(royaltyEvent.args.amount.toNumber()).to.be.equal(
+          royaltyInfo._royaltyAmount.toNumber()
         );
       });
     });
