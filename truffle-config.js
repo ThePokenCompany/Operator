@@ -18,6 +18,16 @@ module.exports = {
         }),
       network_id: 4, // Rinkeby's id
     },
+    main: {
+      provider: () =>
+        new HDWalletProvider({
+          mnemonic: {
+            phrase: process.env.MNEMONIC,
+          },
+          providerOrUrl: `https://mainnet.infura.io/v3/${process.env.INFURA_PRIVATE_KEY}`,
+        }),
+      network_id: 1, // Rinkeby's id
+    },
     ropsten: {
       provider: () =>
         new HDWalletProvider({
