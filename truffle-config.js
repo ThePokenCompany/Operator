@@ -27,6 +27,7 @@ module.exports = {
           providerOrUrl: `https://mainnet.infura.io/v3/${process.env.INFURA_PRIVATE_KEY}`,
         }),
       network_id: 1, // Rinkeby's id
+      gasrice: 32000000000,
     },
     ropsten: {
       provider: () =>
