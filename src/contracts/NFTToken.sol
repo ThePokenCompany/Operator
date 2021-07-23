@@ -26,7 +26,8 @@ contract NFTToken is ERC721URIStorage, Ownable, IERC2981Royalties {
         override
         returns (bool)
     {
-        return interfaceId == type(IERC2981Royalties).interfaceId;
+        return interfaceId == type(IERC2981Royalties).interfaceId
+            || super.supportsInterface(interfaceId);
     }
 
     /// @dev Sets token royalties
