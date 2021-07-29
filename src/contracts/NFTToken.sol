@@ -4,10 +4,11 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./IERC2981Royalties.sol";
 
-contract NFTToken is ERC721URIStorage, Ownable, IERC2981Royalties {
+contract NFTToken is ERC721, ERC721Enumerable, ERC721URIStorage, Ownable, IERC2981Royalties {
     struct Royalty {
         address recipient;
         uint256 value;
@@ -19,11 +20,30 @@ contract NFTToken is ERC721URIStorage, Ownable, IERC2981Royalties {
         setBaseURI(_baseURI_);
     }
 
+    function _beforeTokenTransfer(address from, address to, uint256 tokenId)
+        internal
+        override(ERC721, ERC721Enumerable)
+    {
+        super._beforeTokenTransfer(from, to, tokenId);
+    }
+
+    function _burn(uint256 tokenId) internal override(ERC721, ERC721URIStorage) {
+        super._burn(tokenId);
+    }
+
+    function tokenURI(uint256 tokenId)
+        public
+        view
+        override(ERC721, ERC721URIStorage)
+        returns (string memory)
+    {
+        return super.tokenURI(tokenId);
+    }
+
     function supportsInterface(bytes4 interfaceId)
         public
         view
-        virtual
-        override
+        override(ERC721, ERC721Enumerable)
         returns (bool)
     {
         return interfaceId == type(IERC2981Royalties).interfaceId
