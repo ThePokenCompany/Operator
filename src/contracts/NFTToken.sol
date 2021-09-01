@@ -15,29 +15,15 @@ contract NFTToken is ERC721, ERC721Enumerable, ERC721URIStorage, Ownable, IERC29
     }
     string internal baseUri;
     mapping(uint256 => Royalty) internal _royalties;
+    mapping(address => bool) internal _isApp;
 
     constructor(string memory _baseURI_) ERC721("RarePorn", "NFP") {
         setBaseURI(_baseURI_);
     }
 
-    function _beforeTokenTransfer(address from, address to, uint256 tokenId)
-        internal
-        override(ERC721, ERC721Enumerable)
-    {
-        super._beforeTokenTransfer(from, to, tokenId);
-    }
-
-    function _burn(uint256 tokenId) internal override(ERC721, ERC721URIStorage) {
-        super._burn(tokenId);
-    }
-
-    function tokenURI(uint256 tokenId)
-        public
-        view
-        override(ERC721, ERC721URIStorage)
-        returns (string memory)
-    {
-        return super.tokenURI(tokenId);
+    modifier onlyApp() {
+        require(_isApp[_msgSender()], "Caller is not the app");
+        _;
     }
 
     function supportsInterface(bytes4 interfaceId)
@@ -83,7 +69,14 @@ contract NFTToken is ERC721, ERC721Enumerable, ERC721URIStorage, Ownable, IERC29
         _safeMint(msg.sender, tokenId);
         _setTokenURI(tokenId, _uri);
         _setTokenRoyalty(tokenId, royaltyRecipient, royaltyPercentage);
-    } 
+    }
+
+    function mintForSomeoneAndBuy(uint tokenId, address royaltyRecipient, uint royaltyPercentage, string memory _uri, address buyer) public onlyApp {
+        _safeMint(royaltyRecipient, tokenId);
+        _setTokenURI(tokenId, _uri);
+        _setTokenRoyalty(tokenId, royaltyRecipient, royaltyPercentage);
+        _safeTransfer(royaltyRecipient, buyer, tokenId, "");
+    }
 
     /**
      * @dev Base URI for computing {tokenURI}. Empty by default, can be overriden
@@ -96,5 +89,29 @@ contract NFTToken is ERC721, ERC721Enumerable, ERC721URIStorage, Ownable, IERC29
     function setBaseURI(string memory _baseUri) public onlyOwner {
         require(bytes(_baseUri).length > 0);
         baseUri = _baseUri;
+    }
+
+    function addApp(address _app) public onlyOwner {
+        require(!_isApp[_app], "Address already added as app");
+        _isApp[_app] = true;
+    }
+
+    function removeApp(address _app) public onlyOwner {
+        require(_isApp[_app], "Address is not added as app");
+        _isApp[_app] = false;
+    }
+
+    function _beforeTokenTransfer(address from, address to, uint256 tokenId) internal override(ERC721, ERC721Enumerable)
+    {
+        super._beforeTokenTransfer(from, to, tokenId);
+    }
+
+    function _burn(uint256 tokenId) internal override(ERC721, ERC721URIStorage) {
+        super._burn(tokenId);
+    }
+
+    function tokenURI(uint256 tokenId) public view override(ERC721, ERC721URIStorage) returns (string memory)
+    {
+        return super.tokenURI(tokenId);
     }
 }
