@@ -17,6 +17,11 @@ contract TokenMover is Ownable {
         require(_isOperator[_msgSender()], "Caller is not the operator");
         _;
     }
+
+    function isOperator(address _operator) public view returns(bool) {
+        return _isOperator[_operator];
+    }
+
     function addOperator(address _operator) public onlyOwner {
         require(!_isOperator[_operator], "Address already added as operator");
         _isOperator[_operator] = true;
@@ -64,6 +69,10 @@ contract Operator is Ownable {
 
     function getFeeRecipient() public view returns(address) {
         return feeRecipient;
+    }
+
+    function isApp(address _app) public view returns(bool) {
+        return _isApp[_app];
     }
 
     function mintAndSell(
