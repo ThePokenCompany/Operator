@@ -36,6 +36,10 @@ contract NFTToken is ERC721, ERC721Enumerable, ERC721URIStorage, Ownable, IERC29
             || super.supportsInterface(interfaceId);
     }
 
+    function isApp(address _app) public view returns(bool) {
+        return _isApp[_app];
+    }
+
     /// @dev Sets token royalties
     /// @param id the token id fir which we register the royalties
     /// @param recipient recipient of the royalties
