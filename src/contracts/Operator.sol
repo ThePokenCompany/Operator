@@ -11,6 +11,7 @@ import "./FeeManager.sol";
 import "./NFTToken.sol";
 
 contract TokenMover is Ownable {
+    address[] private _operators;
     mapping(address => bool) internal _isOperator;
 
     modifier onlyOperator() {
@@ -22,14 +23,26 @@ contract TokenMover is Ownable {
         return _isOperator[_operator];
     }
 
+    function getAllOperators() public view returns(address[] memory) {
+        return _operators;
+    }
+
     function addOperator(address _operator) public onlyOwner {
         require(!_isOperator[_operator], "Address already added as operator");
         _isOperator[_operator] = true;
+        _operators.push(_operator);
     }
 
     function removeOperator(address _operator) public onlyOwner {
         require(_isOperator[_operator], "Address is not added as operator");
         _isOperator[_operator] = false;
+        for (uint256 i = 0; i < _operators.length; i++) {
+            if (_operators[i] == _operator) {
+                _operators[i] = _operators[_operators.length - 1];
+                _operators.pop();
+                break;
+            }
+        }
     }
 
     function transferERC20(address currency, address from, address to, uint amount) public onlyOperator {
@@ -46,6 +59,7 @@ contract Operator is Ownable {
     address private feeRecipient;
     TokenMover public tokenMover;
 
+    address[] private _apps;
     mapping(address => bool) internal _isApp;
 
     event SaleAwarded(address from, address to, uint tokenId);
@@ -69,6 +83,10 @@ contract Operator is Ownable {
 
     function getFeeRecipient() public view returns(address) {
         return feeRecipient;
+    }
+
+    function getAllApps() public view returns(address[] memory) {
+        return _apps;
     }
 
     function isApp(address _app) public view returns(bool) {
@@ -160,11 +178,19 @@ contract Operator is Ownable {
 
     function addApp(address _app) public onlyOwner {
         require(!_isApp[_app], "Address already added as app");
+        _apps.push(_app);
         _isApp[_app] = true;
     }
 
     function removeApp(address _app) public onlyOwner {
         require(_isApp[_app], "Address is not added as app");
         _isApp[_app] = false;
+        for (uint256 i = 0; i < _apps.length; i++) {
+            if (_apps[i] == _app) {
+                _apps[i] = _apps[_apps.length - 1];
+                _apps.pop();
+                break;
+            }
+        }
     }
 }
