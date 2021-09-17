@@ -14,6 +14,7 @@ contract NFTToken is ERC721, ERC721Enumerable, ERC721URIStorage, Ownable, IERC29
         uint256 value;
     }
     string internal baseUri;
+    address[] private _apps;
     mapping(uint256 => Royalty) internal _royalties;
     mapping(address => bool) internal _isApp;
 
@@ -34,6 +35,10 @@ contract NFTToken is ERC721, ERC721Enumerable, ERC721URIStorage, Ownable, IERC29
     {
         return interfaceId == type(IERC2981Royalties).interfaceId
             || super.supportsInterface(interfaceId);
+    }
+
+    function getAllApps() public view returns(address[] memory) {
+        return _apps;
     }
 
     function isApp(address _app) public view returns(bool) {
@@ -97,12 +102,20 @@ contract NFTToken is ERC721, ERC721Enumerable, ERC721URIStorage, Ownable, IERC29
 
     function addApp(address _app) public onlyOwner {
         require(!_isApp[_app], "Address already added as app");
+        _apps.push(_app);
         _isApp[_app] = true;
     }
 
     function removeApp(address _app) public onlyOwner {
         require(_isApp[_app], "Address is not added as app");
         _isApp[_app] = false;
+        for (uint256 i = 0; i < _apps.length; i++) {
+            if (_apps[i] == _app) {
+                _apps[i] = _apps[_apps.length - 1];
+                _apps.pop();
+                break;
+            }
+        }
     }
 
     function _beforeTokenTransfer(address from, address to, uint256 tokenId) internal override(ERC721, ERC721Enumerable)
