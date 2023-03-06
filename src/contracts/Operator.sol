@@ -4,22 +4,168 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-import "./FeeManager.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "./IERC2981Royalties.sol";
 import '@openzeppelin/contracts/utils/introspection/ERC165.sol';
+import "./IERC2981Royalties.sol";
+import "./FeeManager.sol";
+import "./NFTToken.sol";
+
+contract TokenMover is Ownable {
+    address[] private _operators;
+    mapping(address => bool) internal _isOperator;
+
+    modifier onlyOperator() {
+        require(_isOperator[_msgSender()], "Caller is not the operator");
+        _;
+    }
+
+    function isOperator(address _operator) public view returns(bool) {
+        return _isOperator[_operator];
+    }
+
+    function getAllOperators() public view returns(address[] memory) {
+        return _operators;
+    }
+
+    function addOperator(address _operator) public onlyOwner {
+        require(!_isOperator[_operator], "Address already added as operator");
+        _isOperator[_operator] = true;
+        _operators.push(_operator);
+    }
+
+    function removeOperator(address _operator) public onlyOwner {
+        require(_isOperator[_operator], "Address is not added as operator");
+        _isOperator[_operator] = false;
+        for (uint256 i = 0; i < _operators.length; i++) {
+            if (_operators[i] == _operator) {
+                _operators[i] = _operators[_operators.length - 1];
+                _operators.pop();
+                break;
+            }
+        }
+    }
+
+    function transferERC20(address currency, address from, address to, uint amount) public onlyOperator {
+        ERC20(currency).transferFrom(from, to, amount);
+    }
+
+    function transferERC721(address currency, address from, address to, uint tokenId) public onlyOperator {
+        ERC721(currency).safeTransferFrom(from, to, tokenId);
+    }
+}
 
 contract Operator is Ownable {
     address private feeManager;
     address private feeRecipient;
+    TokenMover public tokenMover;
+
+    address[] private _apps;
+    mapping(address => bool) internal _isApp;
 
     event SaleAwarded(address from, address to, uint tokenId);
     event ItemGifted(address from, address to, uint tokenId);
     event RoyaltyTransferred(address from, address to, uint amount);
 
-    constructor(address _feeManager, address _feeRecipient) {
+    constructor(address _feeManager, address _feeRecipient, address _TokenMover) {
         feeManager = _feeManager;
         feeRecipient = _feeRecipient;
+        tokenMover = TokenMover(_TokenMover);
+    }
+
+    modifier onlyApp() {
+        require(_isApp[_msgSender()], "Caller is not the app");
+        _;
+    }
+
+    function getFeeManager() public view returns(address) {
+        return feeManager;
+    }
+
+    function getFeeRecipient() public view returns(address) {
+        return feeRecipient;
+    }
+
+    function getAllApps() public view returns(address[] memory) {
+        return _apps;
+    }
+
+    function isApp(address _app) public view returns(bool) {
+        return _isApp[_app];
+    }
+
+    function mintAndSell(
+        uint tokenId,
+        address nftContract,
+        address owner,
+        address buyer,
+        uint price,
+        uint extraFee,
+        uint royaltyPercentage,
+        address currency,
+        string memory _uri
+    ) public onlyApp {
+        require(buyer != address(0), "Buyer cannot be the zero address");
+        require(owner != address(0), "Owner cannot be the zero address");
+        require(price > 0, "Price should be greater than zero");
+
+        NFTToken(nftContract).mintForSomeoneAndBuy(tokenId, owner, royaltyPercentage, _uri, buyer);
+
+        _takeFee(tokenId, nftContract, owner, buyer, price, extraFee, currency);
+        emit SaleAwarded(owner, buyer, tokenId);
+    }
+
+    function sellItem(
+        uint tokenId,
+        address nftContract,
+        address owner,
+        address buyer,
+        uint price,
+        uint extraFee,
+        address currency
+    ) public onlyApp {
+        require(buyer != address(0), "Buyer cannot be the zero address");
+        require(owner != address(0), "Owner cannot be the zero address");
+        require(price > 0, "Price should be greater than zero");
+
+        tokenMover.transferERC721(nftContract, owner, buyer, tokenId);
+
+        _takeFee(tokenId, nftContract, owner, buyer, price, extraFee, currency);
+        emit SaleAwarded(owner, buyer, tokenId);
+    }
+
+    function _takeFee(
+        uint tokenId,
+        address nftContract,
+        address owner,
+        address buyer,
+        uint price,
+        uint extraFee,
+        address currency
+    ) internal {
+        uint commission = FeeManager(feeManager).getPartnerFee(owner);
+        require(commission > 0, "Commission cannot be 0");
+
+        address receiver = address(0);
+        uint royaltyAmount = 0;
+
+        if(ERC165(nftContract).supportsInterface(type(IERC2981Royalties).interfaceId)){
+            (address _receiver, uint256 _royaltyAmount) = IERC2981Royalties(nftContract).royaltyInfo(tokenId, price);
+
+            if(owner != _receiver) {
+                receiver = _receiver;
+                royaltyAmount = _royaltyAmount;
+            }
+        }
+
+        uint fee = (price * commission /10000) + extraFee;
+        uint amount = price - fee - royaltyAmount;
+
+        tokenMover.transferERC20(currency, buyer, owner, amount);
+        tokenMover.transferERC20(currency, buyer, feeRecipient, fee);
+        if(receiver != address(0)){
+            tokenMover.transferERC20(currency, buyer, receiver, royaltyAmount);
+            emit RoyaltyTransferred(buyer, receiver, royaltyAmount);
+        }
     }
 
     function changeFeeManager(address _feeManager) public onlyOwner {
@@ -30,53 +176,21 @@ contract Operator is Ownable {
         feeRecipient = _feeRecipient;
     }
 
-    function getFeeManager() public view onlyOwner returns(address) {
-        return feeManager;
+    function addApp(address _app) public onlyOwner {
+        require(!_isApp[_app], "Address already added as app");
+        _apps.push(_app);
+        _isApp[_app] = true;
     }
 
-    function getFeeRecipient() public view onlyOwner returns(address) {
-        return feeRecipient;
-    }
-
-    function awardItem(uint tokenId, address buyer, uint price, address nftContract, address owner, address currency) public onlyOwner {
-        require(buyer != address(0), "Buyer cannot be the zero address");
-        require(owner != address(0), "Owner cannot be the zero address");
-        require(price > 0, "Price should be greater than zero");
-
-        address receiver = address(0);
-        uint royaltyAmount = 0;
-
-
-        if(ERC165(nftContract).supportsInterface(type(IERC2981Royalties).interfaceId)){
-            (address _receiver, uint256 _royaltyAmount) = IERC2981Royalties(nftContract).royaltyInfo(tokenId, price);
-
-            if(owner != _receiver){
-                receiver = _receiver;
-                royaltyAmount = _royaltyAmount;
-            }            
+    function removeApp(address _app) public onlyOwner {
+        require(_isApp[_app], "Address is not added as app");
+        _isApp[_app] = false;
+        for (uint256 i = 0; i < _apps.length; i++) {
+            if (_apps[i] == _app) {
+                _apps[i] = _apps[_apps.length - 1];
+                _apps.pop();
+                break;
+            }
         }
-
-        uint commission = FeeManager(feeManager).getPartnerFee(owner);
-        require(commission > 0, "Commission cannot be 0");
-        uint fee = price * commission /10000;
-        uint amount = price - fee - royaltyAmount;
-
-        ERC20(currency).transferFrom(buyer, owner, amount);
-        ERC20(currency).transferFrom(buyer, feeRecipient, fee);
-        if(receiver != address(0)){
-            ERC20(currency).transferFrom(buyer, receiver, royaltyAmount);
-            emit RoyaltyTransferred(buyer, receiver, royaltyAmount);
-        }
-        ERC721(nftContract).safeTransferFrom(owner, buyer, tokenId);
-        emit SaleAwarded(owner, buyer, tokenId);
-    }
-
-    // TODO: To be tested
-    function giftItem(uint tokenId, address receiver, address nftContract, address owner) public onlyOwner {
-        require(receiver != address(0), "receiver cannot be the zero address");
-        require(owner != address(0), "Owner cannot be the zero address");
-
-        ERC721(nftContract).safeTransferFrom(owner, receiver, tokenId);
-        emit ItemGifted(owner, receiver, tokenId);
     }
 }

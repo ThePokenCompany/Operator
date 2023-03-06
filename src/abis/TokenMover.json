@@ -1,35 +1,5 @@
 [
 	{
-		"inputs": [
-			{
-				"internalType": "uint256",
-				"name": "_defaultFee",
-				"type": "uint256"
-			}
-		],
-		"stateMutability": "nonpayable",
-		"type": "constructor"
-	},
-	{
-		"anonymous": false,
-		"inputs": [
-			{
-				"indexed": false,
-				"internalType": "address",
-				"name": "partner",
-				"type": "address"
-			},
-			{
-				"indexed": false,
-				"internalType": "uint256",
-				"name": "fee",
-				"type": "uint256"
-			}
-		],
-		"name": "FeeUpdated",
-		"type": "event"
-	},
-	{
 		"anonymous": false,
 		"inputs": [
 			{
@@ -52,16 +22,29 @@
 		"inputs": [
 			{
 				"internalType": "address",
-				"name": "partner",
+				"name": "_operator",
 				"type": "address"
 			}
 		],
-		"name": "getPartnerFee",
+		"name": "addOperator",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "_operator",
+				"type": "address"
+			}
+		],
+		"name": "isOperator",
 		"outputs": [
 			{
-				"internalType": "uint256",
+				"internalType": "bool",
 				"name": "",
-				"type": "uint256"
+				"type": "bool"
 			}
 		],
 		"stateMutability": "view",
@@ -81,6 +64,19 @@
 		"type": "function"
 	},
 	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "_operator",
+				"type": "address"
+			}
+		],
+		"name": "removeOperator",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
 		"inputs": [],
 		"name": "renounceOwnership",
 		"outputs": [],
@@ -90,12 +86,27 @@
 	{
 		"inputs": [
 			{
+				"internalType": "address",
+				"name": "currency",
+				"type": "address"
+			},
+			{
+				"internalType": "address",
+				"name": "from",
+				"type": "address"
+			},
+			{
+				"internalType": "address",
+				"name": "to",
+				"type": "address"
+			},
+			{
 				"internalType": "uint256",
-				"name": "fee",
+				"name": "amount",
 				"type": "uint256"
 			}
 		],
-		"name": "setDefaultFee",
+		"name": "transferERC20",
 		"outputs": [],
 		"stateMutability": "nonpayable",
 		"type": "function"
@@ -104,16 +115,26 @@
 		"inputs": [
 			{
 				"internalType": "address",
-				"name": "partner",
+				"name": "currency",
+				"type": "address"
+			},
+			{
+				"internalType": "address",
+				"name": "from",
+				"type": "address"
+			},
+			{
+				"internalType": "address",
+				"name": "to",
 				"type": "address"
 			},
 			{
 				"internalType": "uint256",
-				"name": "fee",
+				"name": "tokenId",
 				"type": "uint256"
 			}
 		],
-		"name": "setPartnerFee",
+		"name": "transferERC721",
 		"outputs": [],
 		"stateMutability": "nonpayable",
 		"type": "function"
@@ -127,24 +148,6 @@
 			}
 		],
 		"name": "transferOwnership",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "address",
-				"name": "partner",
-				"type": "address"
-			},
-			{
-				"internalType": "uint256",
-				"name": "fee",
-				"type": "uint256"
-			}
-		],
-		"name": "updatePartnerFee",
 		"outputs": [],
 		"stateMutability": "nonpayable",
 		"type": "function"
